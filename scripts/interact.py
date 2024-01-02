@@ -23,6 +23,7 @@ def menu(account, contract, active_chain, dstChain):
         print(f"\n  {contract.symbol()} Available Supply: {int(contract.getAvailableSupply() / (10 ** contract.decimals()))}")
         print(f"  {contract.symbol()} Max Supply: {int(contract.getMaxSupply() / (10 ** contract.decimals()))}")
         print(f"  {contract.symbol()} Wallet Supply: {int(contract.getBalance({'from': account}) / (10 ** contract.decimals()))}")
+        print(f"  Last Received Message: \"{contract.getReceivedMessage({'from': account})}\"")
         option = input('\nChoose a menu option: ')
 
         try:
@@ -82,6 +83,7 @@ def send_msg(account, contract, active_chain, dstChain):
         print(f'Message to be sent: {message}.')
 
         tx_fee = contract.estimateFees(message, destChainID, relayerParams, {"from": account})[0]
+        print (f'Transaction fee (WEI): {tx_fee}')
 
         gas_price = web3.eth.gas_price
         input_data = Utils.get_input_data_hex(1719217057, 32, 25, message)
@@ -103,6 +105,7 @@ def send_msg(account, contract, active_chain, dstChain):
     else:
         print('Contract not found.')
 
+# brownie run scripts/interact.py main Polygon --network Base
 def main(dstChain):
 
     active_chain = network.show_active()
