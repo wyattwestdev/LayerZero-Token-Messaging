@@ -27,39 +27,51 @@ def menu(account, contract, active_chain, dstChain):
         option = input('\nChoose a menu option: ')
 
         try:
+
+            tx = None
+
             if (option.isnumeric()):
+
                 if (int(option) == 1):
-                    send_msg(account, contract, active_chain, dstChain)
+                    tx = send_msg(account, contract, active_chain, dstChain)
                 elif (int(option) == 2):
                     amount = input('\nChoose the amount to be minted: ')
-                    mint(account, contract, amount)            
+                    tx = mint(account, contract, amount)            
                 elif (int(option) == 3):
                     amount = input('\nChoose the amount to be burned: ')
-                    burn(account, contract, amount)
+                    tx = burn(account, contract, amount)
                 elif (int(option) == 4):
                     amount = input('\nChoose the amount to be burned from the supply: ')
-                    burnSupply(account, contract, amount)   
+                    tx = burnSupply(account, contract, amount)   
                 elif (int(option) == 5):
                     amount = input('\nChoose the amount to be added to the supply: ')
-                    increaseSupply(account, contract, amount)        
+                    tx = increaseSupply(account, contract, amount)
+
+                total_fee = totalFeeCalculator(active_chain, tx)
+
+                if tx != None:
+                    
+                    print(f'Total tx fee = {total_fee}.')
+
         except ValueError as exception:
+
             print(exception)
 
 def mint(account, contract, amount):
 
-    contract.mint(amount, {"from": account})
+    return contract.mint(amount, {"from": account})
 
 def burn(account, contract, amount):
 
-    contract.burn(amount, {"from": account})
+    return contract.burn(amount, {"from": account})
 
 def burnSupply(account, contract, amount):
     
-    contract.burnSupply(amount, {"from": account})
+    return contract.burnSupply(amount, {"from": account})
 
 def increaseSupply(account, contract, amount):
     
-    contract.increaseSupply(amount, {"from": account})
+    return contract.increaseSupply(amount, {"from": account})
 
 def send_msg(account, contract, active_chain, dstChain):
 
@@ -68,16 +80,23 @@ def send_msg(account, contract, active_chain, dstChain):
     relayerParams = Utils.get_relayer_hex(Utils.LZ_DEFAULT_RELAYER_INDEX, Utils.LZ_DEFAULT_RELAYER_VALUE)        
 
     if (oracleAddress != None):
+
         zkLightClientOracleParams = Utils.get_lzoracle_config(oracleAddress)
         print('Configuring the LayerZero Oracle...')
         oracleConfig = contract.getConfig(Utils.LZ_DEFAULT_LIBRARY_VERSION, destChainID, Utils.NULL_ADDRESS, Utils.LZ_CONFIG_TYPE_ORACLE, {"from": account})
+
         if (oracleConfig != zkLightClientOracleParams):
+
             contract.setConfig(Utils.LZ_DEFAULT_LIBRARY_VERSION, destChainID, Utils.LZ_CONFIG_TYPE_ORACLE, zkLightClientOracleParams, {"from": account})
+
     else:
+
         print('Default oracle selected.')
+
     print('Initiating cross-chain message bridge...')
 
     if contract is not None:
+
         balance = int(contract.getBalance({"from": account}) / (10 ** contract.decimals()))
         message = f'The wallet in {active_chain} has a total of {balance} WEST tokens.'
         print(f'Message to be sent: {message}.')
@@ -94,16 +113,32 @@ def send_msg(account, contract, active_chain, dstChain):
         confirmation = input(f'\r The estimated tx fee is {Web3.fromWei(estimated_fee, "ether")} ETH. Confirm transaction (y/N)? ')
 
         if (confirmation == 'y' or confirmation == 'Y'):
-            tx = contract.send(destChainID, message, tx_fee, relayerParams, {"from": account, "gas_limit": Utils.GAS_LIMIT, "value": tx_fee, "allow_revert": True})
-            gas_price = web3.eth.getTransaction(tx.txid).gasPrice
-            gas_used = web3.eth.getTransactionReceipt(tx.txid).gasUsed
-            l1_fee = Web3.toInt(hexstr=web3.eth.getTransactionReceipt(tx.txid).l1Fee) if (active_chain == 'Scroll' or active_chain == 'Base') else 0
-            total_fee = (l1_fee + (gas_price * gas_used) / (10 ** 26))
-            print(f'Message sent! Total tx fee = {total_fee}.')
+
+            return contract.send(destChainID, message, tx_fee, relayerParams, {"from": account, "gas_limit": Utils.GAS_LIMIT, "value": tx_fee, "allow_revert": True})
+        
         else:
+
             print('Operation cancelled.')
+
     else:
+
         print('Contract not found.')
+
+    return None
+
+def totalFeeCalculator(active_chain, tx) -> int:
+
+    total_fee = 0
+
+    if tx != None:
+
+        gas_price = web3.eth.getTransaction(tx.txid).gasPrice
+        gas_used = web3.eth.getTransactionReceipt(tx.txid).gasUsed
+        l1_fee = Web3.toInt(hexstr=web3.eth.getTransactionReceipt(tx.txid).l1Fee) if (active_chain == 'Scroll' or active_chain == 'Base') else 0
+
+        total_fee = int(l1_fee + (gas_price * gas_used) / (10 ** 26))
+    
+    return total_fee
 
 # brownie run scripts/interact.py main Polygon --network Base
 def main(dstChain):
